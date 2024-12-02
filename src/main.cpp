@@ -36,6 +36,7 @@ int rotationCounter = 0;
 bool schangeShow = true;
 bool allOkay = true;
 bool monitorTime = false;
+bool stopMotor = false;
 
 struct DateTime{
   int year;
@@ -145,9 +146,9 @@ void calculateDifference(DateTime current, DateTime saved) {
 
 void showTimeDatas(){
   Serial.println();
-  printDate(convert2RTC(savedDateTime),   "Az mentett idő:  ");
+  printDate(convert2RTC(savedDateTime),   "A mentett idő:   ");
   printDate(convert2RTC(showedDateTime),  "Az aktuális idő: ");
-  printDate(currentTime,                  "Az pontos idő:   ");
+  printDate(currentTime,                  "A pontos idő:    ");
 }
 
 void PrintVT100(){
@@ -242,6 +243,15 @@ void loop() {
     }
 
     // rotation direction
+    if (!stopMotor)
+    {
+      if (diffinmin > 0) {
+        myStepper.step(10);
+      } else if (diffinmin < 0) {
+        myStepper.step(-10);
+      }
+    }
+    
     if (diffinmin > 0) {
       myStepper.step(10);
     } else if (diffinmin < 0) {
@@ -262,6 +272,7 @@ void loop() {
 
       showTimeDatas();
 
+      Serial.print("Különbség percben: ");
       Serial.print(diffinmin);
       Serial.println();
     }
@@ -312,6 +323,13 @@ void loop() {
       if (typed == "VT100")
       {
         PrintVT100();
+        stopMotor = true;
+        typed = "";
+      }
+
+      if (typed == "-e" || typed == "--exit")
+      {
+        stopMotor = false;
         typed = "";
       }
 
@@ -326,13 +344,14 @@ void loop() {
         typed = "";
       }
 
-      if (typed == "-h")
+      if (typed == "-h" || typed == "--help")
       {
         Serial.println("\n");
-        Serial.println("VT100   kezdőlap megjelenítése");
-        Serial.println("-h      segítség kiírása");
-        Serial.println("-m      idő folyamatos megjelenítésének bekapcsolása, megállításahoz nyomja meg az ESC gombot");
-        Serial.println("-b      aktuális idő beállítása");
+        Serial.println("VT100                   kezdőlap megjelenítése");
+        Serial.println("-h | --help             segítség kiírása");
+        Serial.println("-i | --ido-megj         idő folyamatos megjelenítésének bekapcsolása, megállításahoz nyomja meg az ESC gombot");
+        Serial.println("-b | --beallitas        aktuális idő beállítása");
+        Serial.println("-e | --exit             aktuális idő beállítása");
         Serial.println();
         Serial.println("FONTOS");
         Serial.println("Ha törölni kell egy sorban akkor nyomjon ENTERT-t és kezdje előlről, nem tud karaktert törölni!");
@@ -340,7 +359,7 @@ void loop() {
         typed = "";
       }
 
-      if (typed == "-m")
+      if (typed == "-i" || typed == "--ido-megj")
       {
         Serial.println();
         Serial.println("Megállításhoz nyomja meg az ESC gombot");
@@ -349,7 +368,7 @@ void loop() {
         typed = "";
       }
 
-      if (typed == "-b")
+      if (typed == "-b" || typed == "--beallitas")
       {
         Serial.println();
         Serial.println("Aktuális idő beállítása");
@@ -363,3 +382,11 @@ void loop() {
     }
   }
 }
+
+/*
+Hiba okának kiírása
+Érzékelők kalibrálása/monitorozása
+VT100-ban ne menjen a motor - exit parancsal kiléphatünk és akkor újra megy
+
+
+*/
