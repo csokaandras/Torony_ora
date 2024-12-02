@@ -36,7 +36,7 @@ int rotationCounter = 0;
 bool schangeShow = true;
 bool allOkay = true;
 bool monitorTime = false;
-bool stopMotor = false;
+bool VT100 = false;
 
 struct DateTime{
   int year;
@@ -163,6 +163,12 @@ void PrintVT100(){
   Serial.println("                                                              Developed By: Csóka András");
   Serial.println("                                                               Designed By: Csóka Antal");
   Serial.println();
+  Serial.println("                                               Amíg a kezelőfelületbe be van lépve addig nem fog menni a meghajtás.");
+  Serial.println();
+  Serial.println("                                                                          FONTOS");
+  Serial.println("                              Ha törölni kell egy sorban akkor nyomjon ENTERT-t és kezdje előlről, NEM TUD KARAKTERT TÖRÖLNI!");
+  Serial.println("                              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  Serial.println();
   showTimeDatas();
 }
 
@@ -243,7 +249,7 @@ void loop() {
     }
 
     // rotation direction
-    if (!stopMotor)
+    if (!VT100)
     {
       if (diffinmin > 0) {
         myStepper.step(10);
@@ -323,13 +329,7 @@ void loop() {
       if (typed == "VT100")
       {
         PrintVT100();
-        stopMotor = true;
-        typed = "";
-      }
-
-      if (typed == "-e" || typed == "--exit")
-      {
-        stopMotor = false;
+        VT100 = true;
         typed = "";
       }
 
@@ -344,41 +344,47 @@ void loop() {
         typed = "";
       }
 
-      if (typed == "-h" || typed == "--help")
+      if (VT100)
       {
-        Serial.println("\n");
-        Serial.println("VT100                   kezdőlap megjelenítése");
-        Serial.println("-h | --help             segítség kiírása");
-        Serial.println("-i | --ido-megj         idő folyamatos megjelenítésének bekapcsolása, megállításahoz nyomja meg az ESC gombot");
-        Serial.println("-b | --beallitas        aktuális idő beállítása");
-        Serial.println("-e | --exit             aktuális idő beállítása");
-        Serial.println();
-        Serial.println("FONTOS");
-        Serial.println("Ha törölni kell egy sorban akkor nyomjon ENTERT-t és kezdje előlről, nem tud karaktert törölni!");
-        Serial.println();
-        typed = "";
-      }
+        if (typed == "-e" || typed == "--exit")
+        {
+          VT100 = false;
+          typed = "";
+        }
 
-      if (typed == "-i" || typed == "--ido-megj")
-      {
-        Serial.println();
-        Serial.println("Megállításhoz nyomja meg az ESC gombot");
-        Serial.println();
-        monitorTime = true;
-        typed = "";
-      }
+        if (typed == "-h" || typed == "--help")
+        {
+          Serial.println("\n");
+          Serial.println("VT100                   belépés a kezelőfelületbe");
+          Serial.println("-h | --help             segítség kiírása");
+          Serial.println("-i | --ido-megj         idő folyamatos megjelenítésének bekapcsolása, megállításahoz nyomja meg az ESC gombot");
+          Serial.println("-b | --beallitas        aktuális idő beállítása");
+          Serial.println("-e | --exit             ");
+          Serial.println();
+          Serial.println();
+          typed = "";
+        }
 
-      if (typed == "-b" || typed == "--beallitas")
-      {
-        Serial.println();
-        Serial.println("Aktuális idő beállítása");
-        Serial.println("Elfogadáshoz nyomja meg a TAB gombot");
-        Serial.println("Kérem ebben a formátumban adja meg ÉÉÉÉ/HH/NN-óó:pp:mm");
-        prevTyped = typed;
-        
+        if (typed == "-i" || typed == "--ido-megj")
+        {
+          Serial.println();
+          Serial.println("Megállításhoz nyomja meg az ESC gombot");
+          Serial.println();
+          monitorTime = true;
+          typed = "";
+        }
 
-        typed = "";
+        if (typed == "-b" || typed == "--beallitas")
+        {
+          Serial.println();
+          Serial.println("Aktuális idő beállítása");
+          Serial.println("Elfogadáshoz nyomja meg a TAB gombot");
+          Serial.println("Kérem ebben a formátumban adja meg ÉÉÉÉ/HH/NN-óó:pp:mm");
+          prevTyped = typed;
+          typed = "";
+        }
       }
+      
     }
   }
 }
