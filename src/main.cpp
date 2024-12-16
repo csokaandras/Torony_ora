@@ -29,23 +29,18 @@ int rotationCounter = 0;
 bool schangeShow = true;
 bool allOkay = true;
 bool monitorTime = false;
-bool VT100 = false;
 
 
-struct Time{
-  int hour;
-  int min;
-  int sec;
-};
 
 struct DateTime{
   int year;
   int month;
   int day;
   int dayofweek;
-  Time time;
+  int hour;
+  int min;
+  int sec;
 };
-
 
 RTCTime newSaveDateTime;
 DateTime savedDateTime;
@@ -82,19 +77,19 @@ DayOfWeek convertDOW(int dow) {
 }
 
 RTCTime convert2RTC(DateTime date) {
-  return RTCTime (date.day, convertMonth(date.month), date.year, date.time.hour, date.time.min, date.time.sec, convertDOW(date.dayofweek), SaveLight::SAVING_TIME_INACTIVE);
+  return RTCTime (date.day, convertMonth(date.month), date.year, date.hour, date.min, date.sec, convertDOW(date.dayofweek), SaveLight::SAVING_TIME_INACTIVE);
 }
 
-DateTime convert2DT(RTCTime rtctime) {
-  RTC.getTime(rtctime);
+DateTime convert2DT(RTCTime time) {
+  RTC.getTime(time);
 
   DateTime saveDateTime;
-  saveDateTime.year = rtctime.getYear();
-  saveDateTime.month = Month2int(rtctime.getMonth());
-  saveDateTime.day = rtctime.getDayOfMonth();
-  saveDateTime.time.hour = rtctime.getHour();
-  saveDateTime.time.min = rtctime.getMinutes();
-  saveDateTime.time.sec = rtctime.getSeconds();
+  saveDateTime.year = time.getYear();
+  saveDateTime.month = Month2int(time.getMonth());
+  saveDateTime.day = time.getDayOfMonth();
+  saveDateTime.hour = time.getHour();
+  saveDateTime.min = time.getMinutes();
+  saveDateTime.sec = time.getSeconds();
 
   return saveDateTime;
 }
@@ -133,21 +128,21 @@ void calculateMinDiff(int current, int saved) {
 
 void calculateDifference(DateTime current, DateTime saved) {
   diffinmin = 0;
-  current.time.hour = current.time.hour > 12 ? current.time.hour-12 : current.time.hour;
-  saved.time.hour = saved.time.hour > 12 ? saved.time.hour-12 : saved.time.hour;
-  int diff = current.time.hour - saved.time.hour;
+  current.hour = current.hour > 12 ? current.hour-12 : current.hour;
+  saved.hour = saved.hour > 12 ? saved.hour-12 : saved.hour;
+  int diff = current.hour - saved.hour;
 
   if (diff != 0) {
     diffinmin += (diff) * 60;
   }
-  calculateMinDiff(current.time.min, saved.time.min);
+  calculateMinDiff(current.min, saved.min);
 }
 
 void showTimeDatas(){
   Serial.println();
-  printDate(convert2RTC(savedDateTime),   "A mentett idő:   ");
+  printDate(convert2RTC(savedDateTime),   "Az mentett idő:  ");
   printDate(convert2RTC(showedDateTime),  "Az aktuális idő: ");
-  printDate(currentTime,                  "A pontos idő:    ");
+  printDate(currentTime,                  "Az pontos idő:   ");
 }
 
 void PrintVT100(){
@@ -161,12 +156,6 @@ void PrintVT100(){
   Serial.println("☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲☴☱☲");
   Serial.println("                                                              Developed By: Csóka András");
   Serial.println("                                                               Designed By: Csóka Antal");
-  Serial.println();
-  Serial.println("                                               Amíg a kezelőfelületbe be van lépve addig nem fog menni a meghajtás.");
-  Serial.println();
-  Serial.println("                                                                          FONTOS");
-  Serial.println("                              Ha törölni kell egy sorban akkor nyomjon ENTERT-t és kezdje előlről, NEM TUD KARAKTERT TÖRÖLNI!");
-  Serial.println("                              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   Serial.println();
   showTimeDatas();
 }
@@ -238,15 +227,6 @@ void loop() {
     }
 
     // rotation direction
-    if (!VT100)
-    {
-      if (diffinmin > 0) {
-        // villanymotor előre lép
-      } else if (diffinmin < 0) {
-        // villanymotor hátra lép
-      }
-    }
-    
     if (diffinmin > 0) {
       // forgatja előre amíg nem lesz 0 a diffinmin 
     } else if (diffinmin < 0) {
@@ -267,7 +247,6 @@ void loop() {
 
       showTimeDatas();
 
-      Serial.print("Különbség percben: ");
       Serial.print(diffinmin);
       Serial.println();
     }
@@ -298,9 +277,9 @@ void loop() {
             newTime.year = typed.substring(0,4).toInt();
             newTime.month = typed.substring(5,7).toInt();
             newTime.day = typed.substring(8,10).toInt();
-            newTime.time.hour = typed.substring(11,13).toInt();
-            newTime.time.min = typed.substring(14,16).toInt();
-            newTime.time.sec = typed.substring(17,19).toInt();
+            newTime.hour = typed.substring(11,13).toInt();
+            newTime.min = typed.substring(14,16).toInt();
+            newTime.sec = typed.substring(17,19).toInt();
             Serial.println();
             printDate(convert2RTC(newTime), "Új dátum: ");
             RTCTime newRtc = convert2RTC(newTime);
@@ -318,7 +297,6 @@ void loop() {
       if (typed == "VT100")
       {
         PrintVT100();
-        VT100 = true;
         typed = "";
       }
 
@@ -333,55 +311,40 @@ void loop() {
         typed = "";
       }
 
-      if (VT100)
+      if (typed == "-h")
       {
-        if (typed == "-e" || typed == "--exit")
-        {
-          VT100 = false;
-          typed = "";
-        }
-
-        if (typed == "-h" || typed == "--help")
-        {
-          Serial.println("\n");
-          Serial.println("VT100                   belépés a kezelőfelületbe");
-          Serial.println("-h | --help             segítség kiírása");
-          Serial.println("-i | --ido-megj         idő folyamatos megjelenítésének bekapcsolása, megállításahoz nyomja meg az ESC gombot");
-          Serial.println("-b | --beallitas        aktuális idő beállítása");
-          Serial.println("-e | --exit             ");
-          Serial.println();
-          Serial.println();
-          typed = "";
-        }
-
-        if (typed == "-i" || typed == "--ido-megj")
-        {
-          Serial.println();
-          Serial.println("Megállításhoz nyomja meg az ESC gombot");
-          Serial.println();
-          monitorTime = true;
-          typed = "";
-        }
-
-        if (typed == "-b" || typed == "--beallitas")
-        {
-          Serial.println();
-          Serial.println("Aktuális idő beállítása");
-          Serial.println("Elfogadáshoz nyomja meg a TAB gombot");
-          Serial.println("Kérem ebben a formátumban adja meg ÉÉÉÉ/HH/NN-óó:pp:mm");
-          prevTyped = typed;
-          typed = "";
-        }
+        Serial.println("\n");
+        Serial.println("VT100   kezdőlap megjelenítése");
+        Serial.println("-h      segítség kiírása");
+        Serial.println("-m      idő folyamatos megjelenítésének bekapcsolása, megállításahoz nyomja meg az ESC gombot");
+        Serial.println("-b      aktuális idő beállítása");
+        Serial.println();
+        Serial.println("FONTOS");
+        Serial.println("Ha törölni kell egy sorban akkor nyomjon ENTERT-t és kezdje előlről, nem tud karaktert törölni!");
+        Serial.println();
+        typed = "";
       }
-      
+
+      if (typed == "-m")
+      {
+        Serial.println();
+        Serial.println("Megállításhoz nyomja meg az ESC gombot");
+        Serial.println();
+        monitorTime = true;
+        typed = "";
+      }
+
+      if (typed == "-b")
+      {
+        Serial.println();
+        Serial.println("Aktuális idő beállítása");
+        Serial.println("Elfogadáshoz nyomja meg a TAB gombot");
+        Serial.println("Kérem ebben a formátumban adja meg ÉÉÉÉ/HH/NN-óó:pp:mm");
+        prevTyped = typed;
+        
+
+        typed = "";
+      }
     }
   }
 }
-
-/*
-Hiba okának kiírása
-Érzékelők kalibrálása/monitorozása
-VT100-ban ne menjen a motor - exit parancsal kiléphatünk és akkor újra megy
-
-
-*/
