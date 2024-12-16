@@ -241,9 +241,9 @@ void loop() {
     if (!VT100)
     {
       if (diffinmin > 0) {
-        myStepper.step(10);
+        // villanymotor előre lép
       } else if (diffinmin < 0) {
-        myStepper.step(-10);
+        // villanymotor hátra lép
       }
     }
     
