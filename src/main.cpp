@@ -1,15 +1,11 @@
 #include <Arduino.h>
-#include <Stepper.h>
 #include "EEPROM.h"
 #include "RTC.h"
 
-#define pwmA 5
-#define pwmB 11
-#define brakeA 9
-#define brakeB 8
-#define dirA 12
-#define dirB 13
-#define setTimePin A2
+#define Hall_0 A0
+#define Hall_1 A1
+#define Hall_2 A2
+#define Hall_3 A3
 
 int incomingByte = 0; // for incoming serial data
 String typed = "";
@@ -25,9 +21,6 @@ const byte onMinPin = 3;
 RTCTime currentTime;
 const int eeAdress = 1;
 
-const int stepsPerRevolution = 400;
-Stepper myStepper = Stepper(stepsPerRevolution, dirA, dirB);
-
 int diffinmin = 0;
 int currentmin = 0;
 int currentsec = 0; // only for monitoring
@@ -38,15 +31,21 @@ bool allOkay = true;
 bool monitorTime = false;
 bool VT100 = false;
 
+
+struct Time{
+  int hour;
+  int min;
+  int sec;
+};
+
 struct DateTime{
   int year;
   int month;
   int day;
   int dayofweek;
-  int hour;
-  int min;
-  int sec;
+  Time time;
 };
+
 
 RTCTime newSaveDateTime;
 DateTime savedDateTime;
@@ -83,19 +82,19 @@ DayOfWeek convertDOW(int dow) {
 }
 
 RTCTime convert2RTC(DateTime date) {
-  return RTCTime (date.day, convertMonth(date.month), date.year, date.hour, date.min, date.sec, convertDOW(date.dayofweek), SaveLight::SAVING_TIME_INACTIVE);
+  return RTCTime (date.day, convertMonth(date.month), date.year, date.time.hour, date.time.min, date.time.sec, convertDOW(date.dayofweek), SaveLight::SAVING_TIME_INACTIVE);
 }
 
-DateTime convert2DT(RTCTime time) {
-  RTC.getTime(time);
+DateTime convert2DT(RTCTime rtctime) {
+  RTC.getTime(rtctime);
 
   DateTime saveDateTime;
-  saveDateTime.year = time.getYear();
-  saveDateTime.month = Month2int(time.getMonth());
-  saveDateTime.day = time.getDayOfMonth();
-  saveDateTime.hour = time.getHour();
-  saveDateTime.min = time.getMinutes();
-  saveDateTime.sec = time.getSeconds();
+  saveDateTime.year = rtctime.getYear();
+  saveDateTime.month = Month2int(rtctime.getMonth());
+  saveDateTime.day = rtctime.getDayOfMonth();
+  saveDateTime.time.hour = rtctime.getHour();
+  saveDateTime.time.min = rtctime.getMinutes();
+  saveDateTime.time.sec = rtctime.getSeconds();
 
   return saveDateTime;
 }
@@ -134,14 +133,14 @@ void calculateMinDiff(int current, int saved) {
 
 void calculateDifference(DateTime current, DateTime saved) {
   diffinmin = 0;
-  current.hour = current.hour > 12 ? current.hour-12 : current.hour;
-  saved.hour = saved.hour > 12 ? saved.hour-12 : saved.hour;
-  int diff = current.hour - saved.hour;
+  current.time.hour = current.time.hour > 12 ? current.time.hour-12 : current.time.hour;
+  saved.time.hour = saved.time.hour > 12 ? saved.time.hour-12 : saved.time.hour;
+  int diff = current.time.hour - saved.time.hour;
 
   if (diff != 0) {
     diffinmin += (diff) * 60;
   }
-  calculateMinDiff(current.min, saved.min);
+  calculateMinDiff(current.time.min, saved.time.min);
 }
 
 void showTimeDatas(){
@@ -181,20 +180,10 @@ void stopRotate() {
   }
 }
 
+
+
 void setup() {
   Serial.begin(9600);
-
-  pinMode(pwmA, OUTPUT);
-  pinMode(pwmB, OUTPUT);
-  pinMode(brakeA, OUTPUT);
-  pinMode(brakeB, OUTPUT);
-
-  digitalWrite(pwmA, HIGH);
-  digitalWrite(pwmB, HIGH);
-  digitalWrite(brakeA, LOW);
-  digitalWrite(brakeB, LOW);
-
-  pinMode(setTimePin, INPUT);
 
   RTC.begin();
   // A fallback time object, for setting the time if there is no time to retrieve from the RTC.
@@ -218,7 +207,7 @@ void setup() {
   calculateDifference(convert2DT(currentTime), savedDateTime);
   showedDateTime = savedDateTime;
 
-  myStepper.setSpeed(60);
+
 
   if (!RTC.isRunning()) {
     // ha az óra eleme lemerült
@@ -259,9 +248,9 @@ void loop() {
     }
     
     if (diffinmin > 0) {
-      myStepper.step(10);
+      // forgatja előre amíg nem lesz 0 a diffinmin 
     } else if (diffinmin < 0) {
-      myStepper.step(-10);
+      // forgatja hátra (meghúzza a relét és ezzel visszafelé forgatja) amíg nem lesz 0 a diffinmin 
     }
 
     if (diffinmin == 0 && schangeShow)
@@ -309,9 +298,9 @@ void loop() {
             newTime.year = typed.substring(0,4).toInt();
             newTime.month = typed.substring(5,7).toInt();
             newTime.day = typed.substring(8,10).toInt();
-            newTime.hour = typed.substring(11,13).toInt();
-            newTime.min = typed.substring(14,16).toInt();
-            newTime.sec = typed.substring(17,19).toInt();
+            newTime.time.hour = typed.substring(11,13).toInt();
+            newTime.time.min = typed.substring(14,16).toInt();
+            newTime.time.sec = typed.substring(17,19).toInt();
             Serial.println();
             printDate(convert2RTC(newTime), "Új dátum: ");
             RTCTime newRtc = convert2RTC(newTime);
