@@ -405,8 +405,9 @@ void loop()
       // várunk picit
       // a 13-ason kiadjuk hogy HIGH
       // forgatja hátra (meghúzza a relét és ezzel visszafelé forgatja) amíg nem lesz 0 a diffinmin
-      digitalWrite(motor_rotate, HIGH);
       digitalWrite(motor_back, HIGH);
+      //delay(500);
+      digitalWrite(motor_rotate, HIGH);
     }
 
     if (diffinmin == 0 && schangeShow)
