@@ -8,20 +8,25 @@
 #define HALL_3 A3
 #define HALL_MIN A4
 
+int motor_rotate = 13;
+int motor_back = 12;
+
 int incomingByte = 0; // for incoming serial data
 String typed = "";
 String prevTyped = "";
+String errorMsg = "";
 
 // --------------------------------- IMPORTANT ---------------------------------
 bool SET_TIME_START = true;
 // --------------------------------- IMPORTANT ---------------------------------
 
 const byte powerLossPin = 2;
-const byte onMinPin = 3;
+
 RTCTime currentTime;
 const int eeAdress = 1;
 
 int diffinmin = 0;
+int prevdiff = 0;
 int currentmin = 0;
 int currentsec = 0; // only for monitoring
 int rotationCounter = 0;
@@ -61,7 +66,7 @@ sensor s0 = {1, 10, 200, 700, 1000, 0};
 sensor s1 = {2, 10, 200, 700, 1000, 0};
 sensor s2 = {4, 10, 200, 700, 1000, 0};
 sensor s3 = {8, 10, 200, 700, 1000, 0};
-sensor sMin = {8, 10, 200, 700, 1000, 0};
+sensor sMin = {0, 0, 200, 700, 1000, 0};
 
 void checkSensor(sensor *s)
 {
@@ -218,6 +223,7 @@ void printDate(RTCTime date, String text)
 
 void calculateMinDiff(int current, int saved)
 {
+  
   int diff = current - saved;
   if (diff != 0)
   {
@@ -261,6 +267,9 @@ void PrintVT100()
   Serial.println("                                                               Designed By: Csóka Antal");
   Serial.println();
   showTimeDatas();
+  int hour = calculateHour(&s0, &s1, &s2, &s3);
+  Serial.print("A mechanika órája: ");
+  Serial.println(hour);
 }
 
 void onMin()
@@ -275,15 +284,6 @@ void onMin()
   }
 }
 
-
-/*
-
-Viszgálnunk kell hogy amikor órát üt akkor az érzékelők is azt mutatják-e
-Ha nem akkor visszajelzünk hogy mizu
-
-*/
-
-
 void setup()
 {
   Serial.begin(9600);
@@ -294,9 +294,12 @@ void setup()
   pinMode(HALL_3, INPUT);
   pinMode(HALL_MIN, INPUT);
 
+  pinMode(motor_rotate, OUTPUT);
+  pinMode(motor_back, OUTPUT);
+
   RTC.begin();
   // A fallback time object, for setting the time if there is no time to retrieve from the RTC.
-  RTCTime mytime(13, Month::AUGUST, 2024, 15, 12, 00, DayOfWeek::THURSDAY, SaveLight::SAVING_TIME_INACTIVE);
+  RTCTime mytime(13, Month::AUGUST, 2024, 15, 12, 30, DayOfWeek::THURSDAY, SaveLight::SAVING_TIME_INACTIVE);
   // Tries to retrieve time
 
   DateTime newDate;
@@ -319,6 +322,7 @@ void setup()
     if (savedTime.getYear() == 2000)
     {
       allOkay = false;
+      errorMsg = "Lemerült az elem és nem tudtam visszanyerni a pontos időt!";
     }
     else
     {
@@ -343,6 +347,9 @@ void loop()
   s3.value = analogRead(HALL_3);
   sMin.value = analogRead(HALL_MIN);
 
+  digitalWrite(motor_rotate, LOW);
+  digitalWrite(motor_back, LOW);
+
   if (allOkay)
   {
     RTC.getTime(currentTime);
@@ -351,16 +358,37 @@ void loop()
 
     if (currentmin != currentTime.getMinutes())
     {
+      prevdiff = diffinmin;
       calculateDifference(convert2DT(currentTime), showedDateTime);
+
+      if (prevdiff != 0)
+      {
+        if (prevdiff > 0)
+        {
+          diffinmin = prevdiff+1;
+        }
+        else
+        {
+          diffinmin = prevdiff-1;
+        }
+      }
+
       currentmin = currentTime.getMinutes();
       schangeShow = true;
     }
-
-    if (sMin.value == 1)
+    
+    if (currentmin == 0 && (hour != currentTime.getHour() || hour != currentTime.getHour()-12))
+    {
+      allOkay = false;
+      errorMsg = "Nem egyezik a mechanika és az elektronika ideje!";
+    }
+    
+    int prev_state = sMin.state;
+    checkSensor(&sMin);
+    if (sMin.state == 0 && prev_state == 1)
     {
       onMin();
     }
-    
 
     // rotation direction
     if (diffinmin > 0)
@@ -369,6 +397,7 @@ void loop()
       // várunk picit
       // a 12-esen kiadjuk hogy LOW
       // forgatja előre amíg nem lesz 0 a diffinmin
+      digitalWrite(motor_rotate, HIGH);
     }
     else if (diffinmin < 0)
     {
@@ -376,6 +405,8 @@ void loop()
       // várunk picit
       // a 13-ason kiadjuk hogy HIGH
       // forgatja hátra (meghúzza a relét és ezzel visszafelé forgatja) amíg nem lesz 0 a diffinmin
+      digitalWrite(motor_rotate, HIGH);
+      digitalWrite(motor_back, HIGH);
     }
 
     if (diffinmin == 0 && schangeShow)
@@ -517,5 +548,9 @@ void loop()
         typed = "";
       }
     }
+  }
+  else
+  {
+    Serial.println(errorMsg);
   }
 }
