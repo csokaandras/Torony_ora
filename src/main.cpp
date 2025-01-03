@@ -20,7 +20,7 @@ bool ErrWrite = false;
 bool manual_rotate = false;
 
 // --------------------------------- IMPORTANT ---------------------------------
-bool SET_TIME_START = true;
+bool SET_TIME_START = false;
 // --------------------------------- IMPORTANT ---------------------------------
 
 const byte powerLossPin = PIN_D2;
@@ -429,12 +429,14 @@ void loop()
     }
     else if (diffinmin == 0)
     {
+
+      if(digitalRead(motor_rotate) == HIGH){
+        Serial.print("Egy fordulat ideje: ");
+        Serial.println(rotation_counter);
+      }
+
       digitalWrite(motor_rotate, LOW);
       digitalWrite(motor_back, LOW);
-
-      Serial.print("Egy fordulat ideje: ");
-      Serial.println(rotation_counter);
-
       rotation_counter = 0;
     }
 
@@ -469,11 +471,17 @@ void loop()
         }
         else if (manual_rotate_count == 0)
         {
+
+          if(digitalRead(motor_rotate) == HIGH){
+            Serial.print("Egy fordulat ideje: ");
+            Serial.println(rotation_counter);
+          }
+
           digitalWrite(motor_rotate, LOW);
           digitalWrite(motor_back, LOW);
 
-          Serial.print("Egy fordulat ideje: ");
-          Serial.println(rotation_counter);
+          /*Serial.print("Egy fordulat ideje: ");
+          Serial.println(rotation_counter);*/
           rotation_counter = 0;
           manual_rotate = false;
         }
@@ -557,7 +565,7 @@ void loop()
           newTime.day = currentTime.getDayOfMonth();
           newTime.hour = typed.substring(0, 2).toInt();
           newTime.min = typed.substring(3, 5).toInt();
-          newTime.sec = typed.substring(6, 7).toInt();
+          newTime.sec = typed.substring(6, 8).toInt();
           Serial.println();
           printDate(convert2RTC(newTime), "Új idő: ");
           RTCTime newRtc = convert2RTC(newTime);
@@ -621,7 +629,7 @@ void loop()
         typed = "";
       }
 
-      if (typed == "-h\n")
+      if (typed == "-h")
       {
         Serial.println("\n");
         Serial.println("VT100   kezdőlap megjelenítése");
