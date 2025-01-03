@@ -33,7 +33,7 @@ int diffinmin = 0;
 int prevdiff = 0;
 int currentmin = 0;
 int currentsec = 0; // only for monitoring
-int rotationCounter = 0;
+int rotation_counter = 0;
 
 bool schangeShow = true;
 bool allOkay = true;
@@ -413,6 +413,7 @@ void loop()
       // várunk picit
       // a 12-esen kiadjuk hogy LOW
       // forgatja előre amíg nem lesz 0 a diffinmin
+      rotation_counter++;
       digitalWrite(motor_rotate, HIGH);
     }
     else if (diffinmin < 0)
@@ -421,6 +422,7 @@ void loop()
       // várunk picit
       // a 13-ason kiadjuk hogy HIGH
       // forgatja hátra (meghúzza a relét és ezzel visszafelé forgatja) amíg nem lesz 0 a diffinmin
+      rotation_counter++;
       digitalWrite(motor_back, HIGH);
       // delay(500);
       digitalWrite(motor_rotate, HIGH);
@@ -429,6 +431,11 @@ void loop()
     {
       digitalWrite(motor_rotate, LOW);
       digitalWrite(motor_back, LOW);
+
+      Serial.print("Egy fordulat ideje: ");
+      Serial.println(rotation_counter);
+
+      rotation_counter = 0;
     }
 
     if (diffinmin == 0 && schangeShow)
@@ -440,12 +447,14 @@ void loop()
     if (manual_rotate)
     {
       int prev_state = sMin.state;
+      rotation_counter++;
       checkSensor(&sMin);
       if (sMin.state == 0 && prev_state == 1)
       {
 
         if (manual_rotate_count > 0)
         {
+          
           digitalWrite(motor_rotate, HIGH);
 
           manual_rotate_count--;
@@ -463,6 +472,9 @@ void loop()
           digitalWrite(motor_rotate, LOW);
           digitalWrite(motor_back, LOW);
 
+          Serial.print("Egy fordulat ideje: ");
+          Serial.println(rotation_counter);
+          rotation_counter = 0;
           manual_rotate = false;
         }
       }
