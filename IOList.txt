@@ -4,10 +4,12 @@ A0 = 1-es szenzor
 A1 = 2-es szenzor
 A2 = 4-es szenzor
 A3 = 8-as szenzor
+A4 = 1-perces érzékelő
+A5 = 1-órás érzékelő
 
 D2 = áramszünet érzékelése
-D12 = visszafelé forgatjuk a motort
-D13 = forgatjuk a motort
+D7 = visszafelé forgatjuk a motort
+D8 = forgatjuk a motort
 
 VRTC = RTC elemének pozitiv
 VRTC nelletti GND = RTC elemének negatív

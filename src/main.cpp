@@ -7,20 +7,22 @@
 #define HALL_2 A2
 #define HALL_3 A3
 #define HALL_MIN A4
+#define HALL_HOUR A5
 
-int motor_rotate = 13;
-int motor_back = 12;
+int motor_rotate = PIN_D8;
+int motor_back = PIN_D7;
 
 int incomingByte = 0; // for incoming serial data
 String typed = "";
 String prevTyped = "";
 String errorMsg = "";
+bool ErrWrite = false;
 
 // --------------------------------- IMPORTANT ---------------------------------
 bool SET_TIME_START = true;
 // --------------------------------- IMPORTANT ---------------------------------
 
-const byte powerLossPin = 2;
+const byte powerLossPin = PIN_D2;
 
 RTCTime currentTime;
 const int eeAdress = 1;
@@ -67,6 +69,7 @@ sensor s1 = {2, 10, 200, 700, 1000, 0};
 sensor s2 = {4, 10, 200, 700, 1000, 0};
 sensor s3 = {8, 10, 200, 700, 1000, 0};
 sensor sMin = {0, 0, 200, 700, 1000, 0};
+sensor sHour = {0, 0, 200, 700, 1000, 0};
 
 void checkSensor(sensor *s)
 {
@@ -248,9 +251,9 @@ void calculateDifference(DateTime current, DateTime saved)
 void showTimeDatas()
 {
   Serial.println();
-  printDate(convert2RTC(savedDateTime), "Az mentett idő:  ");
-  printDate(convert2RTC(showedDateTime), "Az aktuális idő: ");
-  printDate(currentTime, "Az pontos idő:   ");
+  printDate(convert2RTC(savedDateTime),  "Mentett idő:        ");
+  printDate(convert2RTC(showedDateTime), "Mechanika akt. idő: ");
+  printDate(currentTime,                 "A pontos idő:       ");
 }
 
 void PrintVT100()
@@ -294,12 +297,13 @@ void setup()
   pinMode(HALL_3, INPUT);
   pinMode(HALL_MIN, INPUT);
 
+
   pinMode(motor_rotate, OUTPUT);
   pinMode(motor_back, OUTPUT);
 
   RTC.begin();
   // A fallback time object, for setting the time if there is no time to retrieve from the RTC.
-  RTCTime mytime(13, Month::AUGUST, 2024, 15, 12, 30, DayOfWeek::THURSDAY, SaveLight::SAVING_TIME_INACTIVE);
+  RTCTime mytime(1, Month::JANUARY, 2025, 15, 00, 00, DayOfWeek::WEDNESDAY, SaveLight::SAVING_TIME_INACTIVE);
   // Tries to retrieve time
 
   DateTime newDate;
@@ -319,10 +323,11 @@ void setup()
   if (!RTC.isRunning())
   {
     // ha az óra eleme lemerült
-    if (savedTime.getYear() == 2000)
+    if (savedTime.getYear() == 2000 && allOkay)
     {
       allOkay = false;
-      errorMsg = "Lemerült az elem és nem tudtam visszanyerni a pontos időt!";
+      errorMsg = "Lemerült az elem és nem tudtam visszanyerni a pontos időt! S T O P";
+      ErrWrite = true;
     }
     else
     {
@@ -335,6 +340,10 @@ void setup()
     RTC.setTime(mytime);
     SET_TIME_START = false;
   }
+
+  digitalWrite(motor_back, LOW);
+  digitalWrite(motor_rotate, LOW);
+
 }
 
 void loop()
@@ -346,9 +355,7 @@ void loop()
   s2.value = analogRead(HALL_2);
   s3.value = analogRead(HALL_3);
   sMin.value = analogRead(HALL_MIN);
-
-  digitalWrite(motor_rotate, LOW);
-  digitalWrite(motor_back, LOW);
+  sHour.value = analogRead(HALL_HOUR);
 
   if (allOkay)
   {
@@ -377,10 +384,10 @@ void loop()
       schangeShow = true;
     }
     
-    if (currentmin == 0 && (hour != currentTime.getHour() || hour != currentTime.getHour()-12))
+    if (currentmin == 0 && (hour != currentTime.getHour() || hour != currentTime.getHour()-12) && allOkay)
     {
-      allOkay = false;
-      errorMsg = "Nem egyezik a mechanika és az elektronika ideje!";
+      errorMsg = "Nem egyezik a mechanika és az elektronika ideje! S T O P";
+      ErrWrite = true;
     }
     
     int prev_state = sMin.state;
@@ -409,6 +416,11 @@ void loop()
       //delay(500);
       digitalWrite(motor_rotate, HIGH);
     }
+    else if (diffinmin == 0)
+    {
+      digitalWrite(motor_rotate, LOW);
+      digitalWrite(motor_back, LOW);
+    }
 
     if (diffinmin == 0 && schangeShow)
     {
@@ -435,8 +447,12 @@ void loop()
       logSensor("s2", &s2);
       logSensor("s3", &s3);
 
+
       checkSensor(&sMin);
       logSensor("min", &sMin);
+
+      checkSensor(&sHour);
+      logSensor("hour", &sHour);
 
       Serial.print("\nÉrzékelők álltal észlelt idő: ");
       Serial.print(hour);
@@ -552,6 +568,10 @@ void loop()
   }
   else
   {
-    Serial.println(errorMsg);
+    if (ErrWrite == true)
+    {
+        ErrWrite = false;
+        Serial.println(errorMsg);
+    }
   }
 }
