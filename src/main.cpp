@@ -17,6 +17,7 @@ String typed = "";
 String prevTyped = "";
 String errorMsg = "";
 bool ErrWrite = false;
+bool manual_rotate = false;
 
 // --------------------------------- IMPORTANT ---------------------------------
 bool SET_TIME_START = true;
@@ -27,6 +28,7 @@ const byte powerLossPin = PIN_D2;
 RTCTime currentTime;
 const int eeAdress = 1;
 
+int manual_rotate_count = 0;
 int diffinmin = 0;
 int prevdiff = 0;
 int currentmin = 0;
@@ -226,7 +228,7 @@ void printDate(RTCTime date, String text)
 
 void calculateMinDiff(int current, int saved)
 {
-  
+
   int diff = current - saved;
   if (diff != 0)
   {
@@ -251,9 +253,9 @@ void calculateDifference(DateTime current, DateTime saved)
 void showTimeDatas()
 {
   Serial.println();
-  printDate(convert2RTC(savedDateTime),  "Mentett idő:        ");
+  printDate(convert2RTC(savedDateTime), "Mentett idő:        ");
   printDate(convert2RTC(showedDateTime), "Mechanika akt. idő: ");
-  printDate(currentTime,                 "A pontos idő:       ");
+  printDate(currentTime, "A pontos idő:       ");
 }
 
 void PrintVT100()
@@ -275,15 +277,38 @@ void PrintVT100()
   Serial.println(hour);
 }
 
+void changeTime(DateTime time, bool forward)
+{
+  if (forward)
+  {
+    showedDateTime.min++;
+    if (showedDateTime.min >= 60)
+    {
+      showedDateTime.hour++;
+      showedDateTime.min = 0;
+    }
+  }
+  else
+  {
+    showedDateTime.min--;
+    if (showedDateTime.min <= 0)
+    {
+      showedDateTime.hour--;
+      showedDateTime.min = 60;
+    }
+  }
+  calculateDifference(convert2DT(currentTime), showedDateTime);
+}
+
 void onMin()
 {
   if (diffinmin > 0)
   {
-    diffinmin--;
+    changeTime(showedDateTime, true);
   }
   else if (diffinmin < 0)
   {
-    diffinmin++;
+    changeTime(showedDateTime, false);
   }
 }
 
@@ -296,7 +321,6 @@ void setup()
   pinMode(HALL_2, INPUT);
   pinMode(HALL_3, INPUT);
   pinMode(HALL_MIN, INPUT);
-
 
   pinMode(motor_rotate, OUTPUT);
   pinMode(motor_back, OUTPUT);
@@ -343,7 +367,6 @@ void setup()
 
   digitalWrite(motor_back, LOW);
   digitalWrite(motor_rotate, LOW);
-
 }
 
 void loop()
@@ -365,31 +388,17 @@ void loop()
 
     if (currentmin != currentTime.getMinutes())
     {
-      prevdiff = diffinmin;
       calculateDifference(convert2DT(currentTime), showedDateTime);
-
-      if (prevdiff != 0)
-      {
-        if (prevdiff > 0)
-        {
-          diffinmin = prevdiff+1;
-        }
-        else
-        {
-          diffinmin = prevdiff-1;
-        }
-      }
-
       currentmin = currentTime.getMinutes();
       schangeShow = true;
     }
-    
-    if (currentmin == 0 && (hour != currentTime.getHour() || hour != currentTime.getHour()-12) && allOkay)
+
+    if (currentmin == 0 && (hour != currentTime.getHour() || hour != currentTime.getHour() - 12) && allOkay)
     {
       errorMsg = "Nem egyezik a mechanika és az elektronika ideje! S T O P";
       ErrWrite = true;
     }
-    
+
     int prev_state = sMin.state;
     checkSensor(&sMin);
     if (sMin.state == 0 && prev_state == 1)
@@ -413,7 +422,7 @@ void loop()
       // a 13-ason kiadjuk hogy HIGH
       // forgatja hátra (meghúzza a relét és ezzel visszafelé forgatja) amíg nem lesz 0 a diffinmin
       digitalWrite(motor_back, HIGH);
-      //delay(500);
+      // delay(500);
       digitalWrite(motor_rotate, HIGH);
     }
     else if (diffinmin == 0)
@@ -426,6 +435,37 @@ void loop()
     {
       showedDateTime = convert2DT(currentTime);
       schangeShow = false;
+    }
+
+    if (manual_rotate)
+    {
+      int prev_state = sMin.state;
+      checkSensor(&sMin);
+      if (sMin.state == 0 && prev_state == 1)
+      {
+
+        if (manual_rotate_count > 0)
+        {
+          digitalWrite(motor_rotate, HIGH);
+
+          manual_rotate_count--;
+        }
+        else if (manual_rotate_count < 0)
+        {
+          digitalWrite(motor_back, HIGH);
+          // delay(500);
+          digitalWrite(motor_rotate, HIGH);
+
+          manual_rotate_count++;
+        }
+        else if (manual_rotate_count == 0)
+        {
+          digitalWrite(motor_rotate, LOW);
+          digitalWrite(motor_back, LOW);
+
+          manual_rotate = false;
+        }
+      }
     }
 
     // monitoring
@@ -446,7 +486,6 @@ void loop()
       logSensor("s1", &s1);
       logSensor("s2", &s2);
       logSensor("s3", &s3);
-
 
       checkSensor(&sMin);
       logSensor("min", &sMin);
@@ -473,30 +512,79 @@ void loop()
         break;
 
       case 27:
-        typed = "";
-        Serial.println("Monitorozás befejezve");
+        // Serial.println("Monitorozás befejezve");
         Serial.println();
         monitorTime = false;
         monitorSensor = false;
+
+        typed = "";
+        prevTyped = "";
         break;
 
       case 13:
-        if (prevTyped == "-b")
+        if (prevTyped == "-d")
         {
           DateTime newTime;
           newTime.year = typed.substring(0, 4).toInt();
           newTime.month = typed.substring(5, 7).toInt();
           newTime.day = typed.substring(8, 10).toInt();
-          newTime.hour = typed.substring(11, 13).toInt();
-          newTime.min = typed.substring(14, 16).toInt();
-          newTime.sec = typed.substring(17, 19).toInt();
+          newTime.hour = currentTime.getHour();
+          newTime.min = currentTime.getMinutes();
+          newTime.sec = currentTime.getSeconds();
           Serial.println();
           printDate(convert2RTC(newTime), "Új dátum: ");
           RTCTime newRtc = convert2RTC(newTime);
           RTC.setTime(newRtc);
         }
-        break;
+
+        if (prevTyped == "-t")
+        {
+          DateTime newTime;
+          newTime.year = currentTime.getYear();
+          newTime.month = convert2DT(currentTime).month;
+          newTime.day = currentTime.getDayOfMonth();
+          newTime.hour = typed.substring(0, 2).toInt();
+          newTime.min = typed.substring(3, 5).toInt();
+          newTime.sec = typed.substring(6, 7).toInt();
+          Serial.println();
+          printDate(convert2RTC(newTime), "Új idő: ");
+          RTCTime newRtc = convert2RTC(newTime);
+          RTC.setTime(newRtc);
+        }
         // 2024/12/01-22:26:00
+
+        if (prevTyped == "-r+")
+        {
+          if (prevTyped.length() >= 3)
+          {
+            manual_rotate_count = typed.toInt();
+          }
+          else
+          {
+            manual_rotate_count = 1;
+          }
+
+          manual_rotate = true;
+
+          Serial.println();
+        }
+
+        if (prevTyped == "-r-")
+        {
+          if (prevTyped.length() >= 3)
+          {
+            manual_rotate_count = typed.toInt() * -1;
+          }
+          else
+          {
+            manual_rotate_count = -1;
+          }
+
+          manual_rotate = true;
+
+          Serial.println();
+        }
+        break;
 
       default:
         Serial.print(char(incomingByte));
@@ -521,14 +609,17 @@ void loop()
         typed = "";
       }
 
-      if (typed == "-h")
+      if (typed == "-h\n")
       {
         Serial.println("\n");
         Serial.println("VT100   kezdőlap megjelenítése");
         Serial.println("-h      segítség kiírása");
         Serial.println("-m      idő folyamatos megjelenítésének bekapcsolása, megállításához nyomja meg az ESC gombot");
-        Serial.println("-b      aktuális idő beállítása");
-        Serial.println("-e      érzékelők állapotának megjelenítése, megállításához nyomja meg az ESC gombot");
+        Serial.println("-t      aktuális idő beállítása");
+        Serial.println("-d      aktuális dátum beállítása");
+        Serial.println("-s      érzékelők állapotának megjelenítése, megállításához nyomja meg az ESC gombot");
+        Serial.println("-r-     motor léptetése előre (Ha nincs érték akkor 1-el)");
+        Serial.println("-r+     motor léptetése hátra (Ha nincs érték akkor 1-el)");
         Serial.println();
         Serial.println("FONTOS");
         Serial.println("Ha törölni kell egy sorban akkor nyomjon ENTERT-t és kezdje előlről, nem tud karaktert törölni!");
@@ -545,23 +636,54 @@ void loop()
         typed = "";
       }
 
-      if (typed == "-b")
+      if (typed == "-d")
       {
         Serial.println();
-        Serial.println("Aktuális idő beállítása");
+        Serial.println("Aktuális dátum beállítása");
         Serial.println("Elfogadáshoz nyomja meg a TAB gombot");
-        Serial.println("Kérem ebben a formátumban adja meg ÉÉÉÉ/HH/NN-óó:pp:mm");
+        Serial.println("Kérem ebben a formátumban adja meg ÉÉÉÉ/HH/NN");
         prevTyped = typed;
 
         typed = "";
       }
 
-      if (typed == "-e")
+      if (typed == "-t")
+      {
+        Serial.println();
+        Serial.println("Aktuális idő beállítása");
+        Serial.println("Elfogadáshoz nyomja meg a TAB gombot");
+        Serial.println("Kérem ebben a formátumban adja meg óó:pp:mm");
+        prevTyped = typed;
+
+        typed = "";
+      }
+
+      if (typed == "-s")
       {
         Serial.println();
         Serial.println("Megállításhoz nyomja meg az ESC gombot");
         Serial.println();
         monitorSensor = true;
+        typed = "";
+      }
+
+      if (typed == "-r+")
+      {
+        Serial.println();
+        Serial.println("A TAB lenyomásával lehet egyesével léptetni");
+        Serial.println();
+
+        prevTyped = typed;
+        typed = "";
+      }
+
+      if (typed == "-r-")
+      {
+        Serial.println();
+        Serial.println("A TAB lenyomásával lehet egyesével léptetni");
+        Serial.println();
+
+        prevTyped = typed;
         typed = "";
       }
     }
@@ -570,8 +692,8 @@ void loop()
   {
     if (ErrWrite == true)
     {
-        ErrWrite = false;
-        Serial.println(errorMsg);
+      ErrWrite = false;
+      Serial.println(errorMsg);
     }
   }
 }
